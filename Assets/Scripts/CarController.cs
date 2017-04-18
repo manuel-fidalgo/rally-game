@@ -1,85 +1,37 @@
-﻿using System;
+﻿using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
-using UnityEngine;
+        
+public class CarController : MonoBehaviour
+{
+    public List<WheelCollider> frontWheels; // front axle
+    public List<WheelCollider> rearWheels;  //rear axle
 
-public class CarController : MonoBehaviour {
+    public Transform massCentre;
+    public Rigidbody bodyCar;
 
-    Vector3 direction;
-    float speed;
+    public float maxMotorTorque;    // maximum torque to wheel
+    public float maxSteeringAngle;  // maximum steer angle the wheel can have
 
-	// Use this for initialization
-	void Start () {
-        Debug.Log("Starts the Car Controller");
-        direction = Vector3.forward;
-	}
-
-    // Update is called once per frame
-    void Update()
+    public void Start()
     {
-        inputManager();
-        moveCar();
-    }
-
-    private void moveCar()
-    {
-        if (speed > 0)
-        {
-            Debug.Log("Car moves with speed" + speed +".");
-            gameObject.transform.Translate((direction * speed) * Time.deltaTime);
-        }
         
     }
+    //Shoudl i use Update or FixedUpdate?
+    public void FixedUpdate()
+    {   
+        //Updates the centerofmass
+        bodyCar.centerOfMass = massCentre.localPosition;
 
-    private void brake()
-    {
-        Debug.Log("Brake");
-        if (speed>0) speed--;
-    }
-
-    private void turnRight()
-    {
-        Debug.Log("Right");
-        direction = Quaternion.AngleAxis(-1, Vector3.up) * direction;
-    }
-
-    private void turnLeft()
-    {
-        Debug.Log("Left");
-        direction = Quaternion.AngleAxis(1, Vector3.up) * direction;
-    }
-
-    private void accelerate()
-    {
-        Debug.Log("Accelerate");
-        speed++;
-    }
-
-    private void decelerate()
-    {
-        speed--;
-    }
-
-    void inputManager()
-    {
-        if (Input.GetKey("w"))
-        {
-            accelerate();
-        }else
-        {
-            decelerate();
-        }
-        if (Input.GetKey("a"))
-        {
-            turnLeft();
-        }
-        if (Input.GetKey("d"))
-        {
-            turnRight();
-        }
-        if (Input.GetKey("s") || Input.GetKey("space"))
-        {
-            brake();
-        }
+        //gets the torque steering values
+       float motor = maxMotorTorque * Input.GetAxis("Vertical");
+       float steering = maxSteeringAngle * Input.GetAxis("Horizontal");
+        
+       frontWheels[0].steerAngle = steering;
+       frontWheels[1].steerAngle = steering;
+            
+       rearWheels[0].motorTorque = motor;
+       rearWheels[1].motorTorque = motor;
+            
     }
 }
