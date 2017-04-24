@@ -14,8 +14,12 @@ public class PickerSceneController : MonoBehaviour {
     int currentPosition;
     int currentColor;
 
+    public static GameObject selectedCar;
+
+    public static string CAR_ID = "CAR_ID";
 	// Use this for initialization
 	void Start () {
+  
         positions = new Vector3[4];
         positions[0] = new Vector3(68.4f, -55.7f, 126);
         positions[1] = new Vector3(76.5f, -55.7f, 126);
@@ -75,10 +79,10 @@ public class PickerSceneController : MonoBehaviour {
             cars_materials[currentPosition].color = avaliable_colors[currentColor];
         }
 
-
-        Debug.Log(currentColor);
-
         if (Input.GetKey("space")) {
+
+            DontDestroyOnLoad(selectedCar);
+            selectedCar = cars[currentPosition];
             SceneManager.LoadScene(1);
         }
     }
