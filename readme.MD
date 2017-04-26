@@ -1,4 +1,9 @@
-# Version Alpha v0.1.
+# Version Alpha v0.2. (develop)
+- Improved car control script
+- Added car picker and color chooser.
+![alt tag](http://www.subeimagenes.com/img/carpciker-1729560.PNG)
+
+# Version Alpha v0.1. (master)
 - Included car control script
 - Added more textures to the terrain.
 - Added some trees
