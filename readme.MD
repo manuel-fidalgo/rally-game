@@ -1,11 +1,11 @@
-#Vesion Beta 1.1 (develop)
--Added wheels smoke when the car slips
--Better car controller, implementing dynamic wheel friction
--New rally ambiented car picker
+# Vesion Beta 1.1 (develop)
+- Added wheels smoke when the car slips
+- Better car controller, implementing dynamic wheel friction
+- New rally ambiented car picker
 
-#Version Beta 1.0 (master)
--First build version.
--[Game play](https://www.youtube.com/watch?v=_2VMeQSwfKE&t=57s)
+# Version Beta 1.0 (master)
+- First build version.
+[Game play](https://www.youtube.com/watch?v=_2VMeQSwfKE&t=57s)
 
 # Version Alpha v0.3. (develop)
 - New cooler terrain,includes grass trees awesome textures and even roads.
