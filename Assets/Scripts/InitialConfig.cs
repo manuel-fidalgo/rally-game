@@ -10,16 +10,21 @@ public class InitialConfig : MonoBehaviour {
 
         GameObject car, cam;
         CarController cc;
+        SoundManager sm;
 
         car = PickerSceneController.selectedCar;
         cam = car.transform.Find("Camera").gameObject;
         cc = car.GetComponent<CarController>();
+        sm = car.GetComponent<SoundManager>();
 
-        if(cc!=null) cc.enabled = true;
-        if(cam!=null) cam.SetActive(true);
+        if (cc!=null) cc.enabled = true;
+        if (sm != null) sm.enabled = true;
+        if (cam!=null) cam.SetActive(true);
+        
 
-        if(car!=null) Instantiate(car, new Vector3(25,6,25), Quaternion.identity);
-	}
+        if(car!=null) car.transform.position = new Vector3(483, 6, 77);
+
+    }
 	
 	// Update is called once per frame
 	void Update () {

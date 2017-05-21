@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
 using System;
 
@@ -8,22 +7,17 @@ public class CarController : MonoBehaviour {
     private static readonly int LEFT = 0;
     private static readonly int RIGHT = 1;
 
-
     public List<WheelCollider> frontWheels; // front axle
     public List<WheelCollider> rearWheels;  //rear axle
 
     public List<GameObject> frontWheelsMesh;
     public List<GameObject> rearWheelsMesh;
 
-    public GameObject FLL, FRR;
+    public GameObject FLL, FRR; //auxiliar elemets for the double rotation
 
-
-    public Transform massCentre;
-    public Rigidbody bodyCar;
-
-    public float maxMotorTorque;    // maximum torque to wheel
-    public float maxSteeringAngle;  // maximum steer angle the wheel can have
-    public float BrakeTorquePower;
+    private float maxMotorTorque;    // maximum torque to wheel
+    private float maxSteeringAngle;  // maximum steer angle the wheel can have
+    private float BrakeTorquePower;
 
 
     private float currentMotorTorque;
@@ -31,42 +25,56 @@ public class CarController : MonoBehaviour {
     private float currentSteering;
     private float oldSteering;
 
+    private ParticleSystem rightWheel;
+    private ParticleSystem leftWheel;
+
+    private Engine engine; //Car's engine
+
+    public float SmokeRate;
+
 
     public void Start() {
 
-        WheelFrictionCurve fordward_curve, sideways_curve;
+        engine = Engine.getEngine();
+        engine.startEngine();
+
+        GetComponent<Rigidbody>().centerOfMass += new Vector3(0, -0.5f, 1.0f);
+
+        rearWheels[RIGHT].GetComponent<ParticleSystem>().Play();
+        rearWheels[LEFT].GetComponent<ParticleSystem>().Play();
+
+
+        maxMotorTorque = 5000;    // maximum torque to wheel
+        maxSteeringAngle = 30;  // maximum steer angle the wheel can have
+        BrakeTorquePower = 500;
 
         currentMotorTorque = 0;
         currentBrakeTorque = 0;
         currentSteering = 0;
         oldSteering = 0;
 
-        fordward_curve = new WheelFrictionCurve();
-        sideways_curve = new WheelFrictionCurve();
+        //setFrictionConfig();
 
-        setWheelFordwardFrictionCurveValues(fordward_curve);
-        setWheelSidewaysFrictionCurveValues(sideways_curve);
-
-        //setFrictionConfig(fordward_curve, sideways_curve);
-     
-        
     }
 
     public void Update() {
 
         wheelsAnimation();
-
+        smokeEmitter();
     }
+
+
 
     public void FixedUpdate() {
 
         wheelsPhysics();
+        antiRollsPhysics();
     }
 
     public void wheelsPhysics() {
 
         //Updates the centerofmass
-        bodyCar.centerOfMass = massCentre.localPosition;
+
         manageInput();
 
         //Updates the torques and the steerings
@@ -79,19 +87,80 @@ public class CarController : MonoBehaviour {
 
         rearWheels[LEFT].brakeTorque = currentBrakeTorque;
         rearWheels[RIGHT].brakeTorque = currentBrakeTorque;
+        frontWheels[LEFT].brakeTorque = currentBrakeTorque;
+        frontWheels[RIGHT].brakeTorque = currentBrakeTorque;
+
+    }
+
+    private void antiRollsPhysics() {
+
+        float AntiRoll = 35000.0f;
+        WheelHit hit;
+
+        float travelL = 1.0f;
+        float travelR = 1.0f;
+        float antiRollForce;
+        bool groundedL, groundedR;
+
+        //Front axle
+        groundedL = frontWheels[LEFT].GetGroundHit(out hit);
+        if (groundedL)
+            travelL = (-frontWheels[LEFT].transform.InverseTransformPoint(hit.point).y - frontWheels[LEFT].radius) / frontWheels[LEFT].suspensionDistance;
+
+        groundedR = frontWheels[RIGHT].GetGroundHit(out hit);
+        if (groundedR)
+            travelR = (-frontWheels[RIGHT].transform.InverseTransformPoint(hit.point).y - frontWheels[RIGHT].radius) / frontWheels[RIGHT].suspensionDistance;
+
+        antiRollForce = (travelL - travelR) * AntiRoll;
+
+        if (groundedL)
+            GetComponent<Rigidbody>().AddForceAtPosition(frontWheels[LEFT].transform.up * -antiRollForce, frontWheels[LEFT].transform.position);
+        if (groundedR)
+            GetComponent<Rigidbody>().AddForceAtPosition(frontWheels[RIGHT].transform.up * antiRollForce, frontWheels[RIGHT].transform.position);
+
+        //Rear Axle
+        groundedL = rearWheels[LEFT].GetGroundHit(out hit);
+        if (groundedL)
+            travelL = (-rearWheels[LEFT].transform.InverseTransformPoint(hit.point).y - rearWheels[LEFT].radius) / rearWheels[LEFT].suspensionDistance;
+
+        groundedR = rearWheels[RIGHT].GetGroundHit(out hit);
+        if (groundedR)
+            travelR = (-rearWheels[RIGHT].transform.InverseTransformPoint(hit.point).y - rearWheels[RIGHT].radius) / rearWheels[RIGHT].suspensionDistance;
+
+        antiRollForce = (travelL - travelR) * AntiRoll;
+
+        if (groundedL)
+            GetComponent<Rigidbody>().AddForceAtPosition(rearWheels[LEFT].transform.up * -antiRollForce, rearWheels[LEFT].transform.position);
+        if (groundedR)
+            GetComponent<Rigidbody>().AddForceAtPosition(rearWheels[RIGHT].transform.up * antiRollForce, rearWheels[RIGHT].transform.position);
+
+        
 
     }
 
     public void manageInput() {
 
+        float vertical_axe;
+
+        vertical_axe = Input.GetAxis("Vertical");
+
         currentSteering = maxSteeringAngle * Input.GetAxis("Horizontal");
-        currentMotorTorque = maxMotorTorque * Input.GetAxis("Vertical");
-
-
-        if (Input.GetKey("space"))
-            toBrake();
+        if (vertical_axe > 0)
+            currentMotorTorque = -maxMotorTorque * vertical_axe;
         else
+            currentMotorTorque = -maxMotorTorque / 10 * vertical_axe;
+
+        float speed = GetComponent<Rigidbody>().velocity.magnitude * 3.6f;
+
+        Debug.Log("Revs->" + engine.currentRevs + " Gear->" + engine.currentGear + "Speed->" + speed);
+
+        if (Input.GetKey("space")) {
+            toBrake();
+            engine.setRevsAndGearFromSpeed(speed, -1);
+        } else {
             currentBrakeTorque = 0.0f;
+            engine.setRevsAndGearFromSpeed(speed, vertical_axe);
+        }
 
     }
 
@@ -100,12 +169,16 @@ public class CarController : MonoBehaviour {
         var rigidbody = gameObject.GetComponent<Rigidbody>();
         currentBrakeTorque = rigidbody.mass * BrakeTorquePower;
         currentMotorTorque = 0.0f;
+
     }
 
     public float carSpeedFromRMP(float rpm) {
-        float radius = rearWheels[0].radius; //in meters
 
-        return ((2 * Mathf.PI * rpm) / 60) * 3.6f; //* 3.6 transforms m/s -> kmh
+        float speed, radius;
+
+        radius = rearWheels[LEFT].radius; //in meters
+        speed = ((2 * Mathf.PI * rpm) / 60) * 3.6f; //* 3.6 transforms m/s -> kmh
+        return -speed;
     }
 
     public void wheelsAnimation() {
@@ -131,9 +204,6 @@ public class CarController : MonoBehaviour {
 
             /*Wheels rotation*/
 
-            //Sets the wheels again in the initial position
-
-
             //Sets the new steering
             float aux_oldsteer, aux_steer, angle;
             aux_oldsteer = oldSteering + maxSteeringAngle;
@@ -141,28 +211,27 @@ public class CarController : MonoBehaviour {
 
             angle = aux_steer - aux_oldsteer;
 
-            FL.Rotate(Vector3.up, angle);
+            FL.Rotate(Vector3.up, angle);       //rotates for the steering
             FR.Rotate(Vector3.up, angle);
-            
 
-            oldSteering = currentSteering; //Updates the old steering for the nect reajust
+
+            oldSteering = currentSteering; //Updates the old steering for the next reajust
 
             //Calculates the angle for rotate the rear wheels
             float rpm = (rearWheels[LEFT].rpm + rearWheels[RIGHT].rpm) / 2;
-            rotation_angle = (rpm * 360) / 60 * Time.deltaTime;
+            rotation_angle = (-rpm * 360) / 60 * Time.deltaTime;
 
             //Rotates the rear wheels
             RL.Rotate(Vector3.right, rotation_angle, Space.Self);
             RR.Rotate(Vector3.right, rotation_angle, Space.Self);
 
-            //Vector to rotate arround when wheels are steered
-             
-            Vector3 vec = Quaternion.AngleAxis(angle, Vector3.up) * gameObject.transform.right;
 
-            FLL.transform.Rotate(Vector3.right, rotation_angle, Space.Self);
+            FLL.transform.Rotate(Vector3.right, rotation_angle, Space.Self); //rotates for the speed
             FRR.transform.Rotate(Vector3.right, rotation_angle, Space.Self);
-            
+
+
             /*Suspension effects*/
+
             suspensionEffect(WFL, FL);
             suspensionEffect(WFR, FR);
             suspensionEffect(WRL, RL);
@@ -171,22 +240,54 @@ public class CarController : MonoBehaviour {
         }
     }
 
+    private void smokeEmitter() {
 
-    public void suspensionEffect(WheelCollider wc, Transform mesh) {
+        WheelHit hit;
+        
+        if (rearWheels[RIGHT].GetGroundHit(out hit)) {
+           
+            if (Math.Abs(hit.sidewaysSlip) > 0.30) {
 
-        RaycastHit hit;
-        Vector3 wheelCCenter = wc.transform.TransformPoint(wc.center);
+                var emission = rearWheels[RIGHT].GetComponent<ParticleSystem>().emission;
+                emission.rateOverTime = Math.Abs(hit.sidewaysSlip) * SmokeRate;
 
-        if (Physics.Raycast(wc.transform.localPosition, -wc.transform.up, out hit, wc.suspensionDistance + wc.radius)) {
+            } else {
+                var emission = rearWheels[RIGHT].GetComponent<ParticleSystem>().emission;
+                emission.rateOverTime = 0;
+            }
+        }
+        if (rearWheels[LEFT].GetGroundHit(out hit)) {
+            //Debug.Log("sideway slip->" + hit.sidewaysSlip + "forward slip->"+ hit.forwardSlip);
 
-            mesh.position = new Vector3(mesh.position.x, hit.point.y + (wc.transform.up.y * wc.radius), mesh.position.z);
-        } else {
+            if (Math.Abs(hit.sidewaysSlip) > 0.30) {
 
-            //Bug here when the car is falling
-            mesh.position = new Vector3(mesh.position.x, wheelCCenter.y - (wc.transform.up.y * wc.suspensionDistance), mesh.position.z);
+                var emission = rearWheels[LEFT].GetComponent<ParticleSystem>().emission;
+                emission.rateOverTime = Math.Abs(hit.sidewaysSlip) * SmokeRate;
+            } else {
+
+                var emission = rearWheels[LEFT].GetComponent<ParticleSystem>().emission;
+                emission.rateOverTime = 0;
+            }
         }
 
     }
+
+
+    public void suspensionEffect(WheelCollider Wheel, Transform WheelMesh) {
+
+        RaycastHit hit;
+        Vector3 wheelCCenter = Wheel.transform.TransformPoint(Wheel.center);
+
+
+        if (Physics.Raycast(wheelCCenter, -Wheel.transform.up, out hit, Wheel.suspensionDistance + Wheel.radius)) {
+
+            WheelMesh.position = hit.point + (Wheel.transform.up * Wheel.radius);
+        } else {
+
+            WheelMesh.position = wheelCCenter - (Wheel.transform.up * Wheel.suspensionDistance);
+        }
+    }
+
 
     //Get the suspension's distance compressed in a wheel collider 
     public float getCompression(WheelCollider wc) {
@@ -196,59 +297,134 @@ public class CarController : MonoBehaviour {
         balance = wc.suspensionSpring.targetPosition; // [0,1] 0,5 default, when the car is stopped
         distance = wc.suspensionDistance; //0.3 in this car
 
-        Debug.Log("target position->" + balance);
 
         //factor_balance [-0.5 , 0.5] return -> [-0.15,0.15] //Half of the suspension distance
         float factor_balance = balance - default_balance;
         return -(factor_balance * distance); //+y up, -y down 
     }
 
-    private void setWheelFordwardFrictionCurveValues(WheelFrictionCurve curve) {
+    private void setFrictionConfig() {
 
-        curve.extremumSlip = 0.4f;    //0.4
-        curve.extremumValue = 1f;     //1
-        curve.asymptoteSlip = 0.8f;   //0.8
-        curve.asymptoteValue = 0.5f;  //0.5
-        curve.stiffness = 1.0f;       //1
-    }
+        WheelFrictionCurve fordwardCurve;
+        WheelFrictionCurve sidewaysCurve;
 
-    public void setWheelSidewaysFrictionCurveValues(WheelFrictionCurve curve) {
-        
-        curve.extremumSlip = 0.2f;          //0.2
-        curve.extremumValue = 1.0f;     //1
-        curve.asymptoteSlip = 0.5f;         //0.5
-        curve.asymptoteValue = 0.75f;    //0.75
-        curve.stiffness = 1.0f;             //1
 
-    }
+        fordwardCurve = new WheelFrictionCurve();
+        fordwardCurve.asymptoteSlip = 0.8f;
+        fordwardCurve.asymptoteValue = 0.9f;
+        fordwardCurve.extremumValue = 1f;
+        fordwardCurve.extremumSlip = 0.4f;
+        fordwardCurve.stiffness = 1f;
 
-    private void setFrictionConfig(WheelFrictionCurve fordward_curve, WheelFrictionCurve sideways_curve) {
+
+        sidewaysCurve = new WheelFrictionCurve();
+        sidewaysCurve.asymptoteSlip = 0.8f;
+        sidewaysCurve.asymptoteValue = 0.75f;
+        sidewaysCurve.extremumValue = 1f;
+        sidewaysCurve.extremumSlip = 0.2f;
+        sidewaysCurve.stiffness = 0.2f;
+
+
+
         foreach (var collider in frontWheels) {
-            collider.forwardFriction = fordward_curve;
-            collider.sidewaysFriction = sideways_curve;
+            collider.forwardFriction = fordwardCurve;
+            collider.sidewaysFriction = sidewaysCurve;
         }
 
         foreach (var collider in rearWheels) {
-            collider.forwardFriction = fordward_curve;
-            collider.sidewaysFriction = sideways_curve;
+            collider.forwardFriction = fordwardCurve;
+            collider.sidewaysFriction = sidewaysCurve;
+        }
+
+    }
+
+
+}
+
+
+public class Engine {
+
+    public bool neutral;
+    public bool accelerating;
+    public bool deccelerating;
+
+    public readonly int GEAR_NUMS = 5;
+    public readonly int MAX_REVS = 10000;
+    public readonly int CHANGE_REVS = 7000;
+    public readonly int MIN_REVS = 850;
+
+    static int STOP = 1, MAX_SPEED = 250;
+    static int CHANGE_1 = 30, CHANGE_2 = 70, CHANGE_3 = 120, CHANGE_4 = 180;
+
+
+
+    public int currentGear { get; set; }
+    public float currentRevs { get; set; }
+
+    private static Engine singleton;
+
+    private Engine() {
+        currentGear = 0;
+        currentRevs = 0;
+    }
+
+    public static Engine getEngine() {
+        if (singleton == null) {
+            singleton = new Engine();
+        }
+        return singleton;
+    }
+
+    public void startEngine() {
+        currentGear = 0;
+        currentRevs = MIN_REVS;
+    }
+
+    public void setRevsAndGearFromSpeed(float speed, float acc) {
+        if (speed <= STOP) {
+            currentGear = 0;
+            currentRevs = MIN_REVS;
+        } else if (speed <= CHANGE_1) {
+            currentGear = 1;
+            if (acc > 0)
+                setRevs(speed, STOP, CHANGE_1);
+            else
+                setRevsAccelerating(speed, STOP, CHANGE_1, acc);
+        } else if (speed <= CHANGE_2) {
+            currentGear = 2;
+            setRevsAccelerating(speed, CHANGE_1, CHANGE_2, acc);
+        } else if (speed <= CHANGE_3) {
+            currentGear = 3;
+            setRevsAccelerating(speed, CHANGE_2, CHANGE_3, acc);
+        } else if (speed <= CHANGE_4) {
+            currentGear = 4;
+            setRevsAccelerating(speed, CHANGE_3, CHANGE_4, acc);
+        } else if (speed <= MAX_SPEED) {
+            currentGear = 5;
+            setRevsAccelerating(speed, CHANGE_4, MAX_SPEED, acc);
+        } else {
+            currentGear = 5;
+            currentRevs = MAX_REVS;
         }
     }
+    private void setRevs(float speed, int minlimit, int maxLimit) {
+        float norm_speed = speed - minlimit;
+        float norm_limit = maxLimit - minlimit;
 
+        currentRevs = (MAX_REVS * norm_speed) / norm_limit;
+    }
+    private void setRevsAccelerating(float speed, int minlimit, int maxLimit, float acceleratig) {
+        float norm_speed = speed - minlimit;
+        float norm_limit = maxLimit - minlimit;
 
-}
+        float norm_revs = MAX_REVS - CHANGE_REVS;
 
-
-class Engie {
-
-    public readonly int GEAR_NUMS = 6;
-    public readonly int MAX_REVS = 9000;
-    public readonly int MIN_REVS = 1000;
-
-    private int currentGear;
-    private int currentRevs;
-
-    public Engie() {
-
+        if (acceleratig > 0) {
+            currentRevs = ((norm_revs * norm_speed) / norm_limit) + CHANGE_REVS; //(7000 - 10000)
+        } else {
+            currentRevs = ((norm_revs * norm_speed) / norm_limit) + MIN_REVS;
+        }
     }
 }
+
 

@@ -1,5 +1,4 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -7,6 +6,8 @@ public class PickerSceneController : MonoBehaviour {
 
     public List<GameObject> cars;
     public List<Material> cars_materials;
+    public GameObject Audios;
+    public AudioSource start;
 
     List<Color> avaliable_colors;
     Vector3[] positions;
@@ -19,18 +20,15 @@ public class PickerSceneController : MonoBehaviour {
     public static string CAR_ID = "CAR_ID";
 	// Use this for initialization
 	void Start () {
-  
-        positions = new Vector3[4];
-        positions[0] = new Vector3(68.4f, -55.7f, 126);
-        positions[1] = new Vector3(76.5f, -55.7f, 126);
-        positions[2] = new Vector3(86.0f, -55.7f, 126);
-        positions[3] = new Vector3(93.9f, -55.7f, 126);
+
+        QualitySettings.antiAliasing = 8;
+        positions = new Vector3[3];
+        positions[0] = new Vector3(77.41f, -55.61f, 125.92f);
+        positions[1] = new Vector3(86.0f, -55.61f, 125.92f);
+        positions[2] = new Vector3(93.9f, -55.61f, 125.92f);
         currentPosition = 0;
         currentColor = 0;
-        for (int i = 0; i < cars.Count; i++) {
-            Object.DontDestroyOnLoad(cars[i]);
-        }
-
+        
         avaliable_colors = new List<Color>();
 
         createColors(avaliable_colors);
@@ -81,8 +79,11 @@ public class PickerSceneController : MonoBehaviour {
 
         if (Input.GetKey("space")) {
 
-            DontDestroyOnLoad(selectedCar);
+            start.Play();
+
             selectedCar = cars[currentPosition];
+            DontDestroyOnLoad(selectedCar);
+            DontDestroyOnLoad(Audios);
             SceneManager.LoadScene(1);
         }
     }
