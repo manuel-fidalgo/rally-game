@@ -32,29 +32,27 @@ public class CarController : MonoBehaviour {
 
     public float SmokeRate;
 
+    private WheelFrictionCurve default_;
+    private WheelFrictionCurve braking_;
+
 
     public void Start() {
 
         engine = Engine.getEngine();
         engine.startEngine();
 
-        GetComponent<Rigidbody>().centerOfMass += new Vector3(0, -0.5f, 1.0f);
-
-        rearWheels[RIGHT].GetComponent<ParticleSystem>().Play();
-        rearWheels[LEFT].GetComponent<ParticleSystem>().Play();
-
+        GetComponent<Rigidbody>().centerOfMass += new Vector3(0, -1.0f, 1.0f);
 
         maxMotorTorque = 5000;    // maximum torque to wheel
         maxSteeringAngle = 30;  // maximum steer angle the wheel can have
-        BrakeTorquePower = 500;
+        BrakeTorquePower = 5000;
 
         currentMotorTorque = 0;
         currentBrakeTorque = 0;
         currentSteering = 0;
         oldSteering = 0;
 
-        //setFrictionConfig();
-
+        setFrictionConfig();
     }
 
     public void Update() {
@@ -68,7 +66,7 @@ public class CarController : MonoBehaviour {
     public void FixedUpdate() {
 
         wheelsPhysics();
-        antiRollsPhysics();
+        //antiRollsPhysics(); //Better results without
     }
 
     public void wheelsPhysics() {
@@ -134,38 +132,54 @@ public class CarController : MonoBehaviour {
         if (groundedR)
             GetComponent<Rigidbody>().AddForceAtPosition(rearWheels[RIGHT].transform.up * antiRollForce, rearWheels[RIGHT].transform.position);
 
-        
+
 
     }
 
     public void manageInput() {
 
         float vertical_axe;
+        float speed = GetComponent<Rigidbody>().velocity.magnitude * 3.6f;
 
         vertical_axe = Input.GetAxis("Vertical");
 
         currentSteering = maxSteeringAngle * Input.GetAxis("Horizontal");
-        if (vertical_axe > 0)
+
+        if (vertical_axe > 0) {
             currentMotorTorque = -maxMotorTorque * vertical_axe;
-        else
+        } else {
             currentMotorTorque = -maxMotorTorque / 10 * vertical_axe;
+        }
 
-        float speed = GetComponent<Rigidbody>().velocity.magnitude * 3.6f;
-
-        Debug.Log("Revs->" + engine.currentRevs + " Gear->" + engine.currentGear + "Speed->" + speed);
+        Debug.Log("Revs->" + engine.currentRevs + " Gear->" + engine.currentGear + "Speed->" + speed + "--> "+ vertical_axe);
 
         if (Input.GetKey("space")) {
             toBrake();
             engine.setRevsAndGearFromSpeed(speed, -1);
+            setBrakingFriction();
         } else {
             currentBrakeTorque = 0.0f;
             engine.setRevsAndGearFromSpeed(speed, vertical_axe);
+            setNormalFriction();
         }
 
     }
 
-    public void toBrake() {
+    private void setNormalFriction() {
 
+        foreach (var collider in rearWheels)
+            collider.sidewaysFriction = default_;
+
+    }
+
+    private void setBrakingFriction() {
+
+        foreach (var collider in rearWheels)
+            collider.sidewaysFriction = braking_;
+
+    }
+
+    public void toBrake() {
         var rigidbody = gameObject.GetComponent<Rigidbody>();
         currentBrakeTorque = rigidbody.mass * BrakeTorquePower;
         currentMotorTorque = 0.0f;
@@ -243,10 +257,13 @@ public class CarController : MonoBehaviour {
     private void smokeEmitter() {
 
         WheelHit hit;
-        
+
         if (rearWheels[RIGHT].GetGroundHit(out hit)) {
-           
-            if (Math.Abs(hit.sidewaysSlip) > 0.30) {
+
+            if (!rearWheels[RIGHT].GetComponent<ParticleSystem>().isPlaying)
+                rearWheels[RIGHT].GetComponent<ParticleSystem>().Play();
+
+            if (Math.Abs(hit.sidewaysSlip) > 0.25 && hit.collider.material.name.Contains("MaxFriction")) {
 
                 var emission = rearWheels[RIGHT].GetComponent<ParticleSystem>().emission;
                 emission.rateOverTime = Math.Abs(hit.sidewaysSlip) * SmokeRate;
@@ -256,10 +273,13 @@ public class CarController : MonoBehaviour {
                 emission.rateOverTime = 0;
             }
         }
-        if (rearWheels[LEFT].GetGroundHit(out hit)) {
-            //Debug.Log("sideway slip->" + hit.sidewaysSlip + "forward slip->"+ hit.forwardSlip);
 
-            if (Math.Abs(hit.sidewaysSlip) > 0.30) {
+        if (rearWheels[LEFT].GetGroundHit(out hit)) {
+
+            if (!rearWheels[LEFT].GetComponent<ParticleSystem>().isPlaying)
+                rearWheels[LEFT].GetComponent<ParticleSystem>().Play();
+
+            if (Math.Abs(hit.sidewaysSlip) > 0.25 && hit.collider.material.name.Contains("MaxFriction")) {
 
                 var emission = rearWheels[LEFT].GetComponent<ParticleSystem>().emission;
                 emission.rateOverTime = Math.Abs(hit.sidewaysSlip) * SmokeRate;
@@ -305,35 +325,30 @@ public class CarController : MonoBehaviour {
 
     private void setFrictionConfig() {
 
-        WheelFrictionCurve fordwardCurve;
-        WheelFrictionCurve sidewaysCurve;
+
+        default_ = new WheelFrictionCurve();
+        default_.extremumSlip = 0.2f;
+        default_.extremumValue = 1f;
+        default_.asymptoteSlip = 0.5f;
+        default_.asymptoteValue = 0.75f;
+        default_.stiffness = 1f;
 
 
-        fordwardCurve = new WheelFrictionCurve();
-        fordwardCurve.asymptoteSlip = 0.8f;
-        fordwardCurve.asymptoteValue = 0.9f;
-        fordwardCurve.extremumValue = 1f;
-        fordwardCurve.extremumSlip = 0.4f;
-        fordwardCurve.stiffness = 1f;
-
-
-        sidewaysCurve = new WheelFrictionCurve();
-        sidewaysCurve.asymptoteSlip = 0.8f;
-        sidewaysCurve.asymptoteValue = 0.75f;
-        sidewaysCurve.extremumValue = 1f;
-        sidewaysCurve.extremumSlip = 0.2f;
-        sidewaysCurve.stiffness = 0.2f;
-
+        braking_ = new WheelFrictionCurve();
+        braking_.extremumSlip = 0.2f;
+        braking_.extremumValue = 1f;
+        braking_.asymptoteSlip = 0.5f;
+        braking_.asymptoteValue = 0.75f;
+        braking_.stiffness = 0.5f;
 
 
         foreach (var collider in frontWheels) {
-            collider.forwardFriction = fordwardCurve;
-            collider.sidewaysFriction = sidewaysCurve;
+
+            collider.sidewaysFriction = default_;
         }
 
         foreach (var collider in rearWheels) {
-            collider.forwardFriction = fordwardCurve;
-            collider.sidewaysFriction = sidewaysCurve;
+            collider.sidewaysFriction = default_;
         }
 
     }
