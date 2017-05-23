@@ -138,31 +138,51 @@ public class CarController : MonoBehaviour {
 
     public void manageInput() {
 
-        float vertical_axe;
+        float vertical_axe, horizontal_axe;
         float speed = GetComponent<Rigidbody>().velocity.magnitude * 3.6f;
 
+        bool is_braking = false;
+
+        
         vertical_axe = Input.GetAxis("Vertical");
+        horizontal_axe = Input.GetAxis("Horizontal");
 
-        currentSteering = maxSteeringAngle * Input.GetAxis("Horizontal");
+        currentSteering = maxSteeringAngle * horizontal_axe;
 
-        if (vertical_axe > 0) {
+        if (vertical_axe >= 0) {
             currentMotorTorque = -maxMotorTorque * vertical_axe;
         } else {
-            currentMotorTorque = -maxMotorTorque / 10 * vertical_axe;
+            if (speed < 30) {
+                currentMotorTorque = -maxMotorTorque / 10 * vertical_axe; //vertical axe < 0
+            }else {
+                is_braking = true;
+            }
         }
 
-        Debug.Log("Revs->" + engine.currentRevs + " Gear->" + engine.currentGear + "Speed->" + speed + "--> "+ vertical_axe);
-
+        //Manages if the hand brake is activated, changes the wheels' sideway frictions
         if (Input.GetKey("space")) {
-            toBrake();
+    
             engine.setRevsAndGearFromSpeed(speed, -1);
             setBrakingFriction();
+            is_braking = true;
         } else {
-            currentBrakeTorque = 0.0f;
+
             engine.setRevsAndGearFromSpeed(speed, vertical_axe);
             setNormalFriction();
         }
 
+        //Ligths and braketorques.
+        if (is_braking) {
+            toBrake();
+            setLights(true);
+        }else {
+            currentBrakeTorque = 0.0f;
+            setLights(false);
+        }
+
+    }
+    private void setLights(bool status) {
+        transform.Find("BrakeLights").gameObject.SetActive(status);
     }
 
     private void setNormalFriction() {
@@ -182,7 +202,7 @@ public class CarController : MonoBehaviour {
     public void toBrake() {
         var rigidbody = gameObject.GetComponent<Rigidbody>();
         currentBrakeTorque = rigidbody.mass * BrakeTorquePower;
-        currentMotorTorque = 0.0f;
+        //currentMotorTorque = 0.0f;
 
     }
 
