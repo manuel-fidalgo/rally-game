@@ -7,6 +7,8 @@ public class CarController : MonoBehaviour {
     private static readonly int LEFT = 0;
     private static readonly int RIGHT = 1;
 
+    private static readonly string ROAD_MATERIAL_NAME = "MaxFriction";
+
     public List<WheelCollider> frontWheels; // front axle
     public List<WheelCollider> rearWheels;  //rear axle
 
@@ -35,6 +37,7 @@ public class CarController : MonoBehaviour {
     private WheelFrictionCurve default_;
     private WheelFrictionCurve braking_;
 
+    public AudioSource skid;
 
     public void Start() {
 
@@ -57,6 +60,7 @@ public class CarController : MonoBehaviour {
 
     public void Update() {
 
+        skidSound();
         wheelsAnimation();
         smokeEmitter();
     }
@@ -139,7 +143,7 @@ public class CarController : MonoBehaviour {
     public void manageInput() {
 
         float vertical_axe, horizontal_axe;
-        float speed = GetComponent<Rigidbody>().velocity.magnitude * 3.6f;
+        float speed = getSpeed();
 
         bool is_braking = false;
 
@@ -165,6 +169,7 @@ public class CarController : MonoBehaviour {
             engine.setRevsAndGearFromSpeed(speed, -1);
             setBrakingFriction();
             is_braking = true;
+           
         } else {
 
             engine.setRevsAndGearFromSpeed(speed, vertical_axe);
@@ -175,12 +180,55 @@ public class CarController : MonoBehaviour {
         if (is_braking) {
             toBrake();
             setLights(true);
-        }else {
+          
+        } else {
             currentBrakeTorque = 0.0f;
             setLights(false);
+
         }
 
     }
+
+    public void skidSound() {
+
+        bool on_road = false; //At least one is touching the road
+        float fordward_aver, side_aver;
+
+        float volume_factor = 0.75f;
+        if (!skid.isPlaying) {
+            skid.Play();
+        }
+        WheelHit FL, FR, RL, RR;
+
+        frontWheels[LEFT].GetGroundHit(out FL);
+        frontWheels[RIGHT].GetGroundHit(out FR);
+        rearWheels[LEFT].GetGroundHit(out RL);
+        rearWheels[RIGHT].GetGroundHit(out RR);
+
+        fordward_aver = (FL.forwardSlip + FR.forwardSlip + RL.forwardSlip + RR.forwardSlip) / 4;
+        side_aver = (FL.sidewaysSlip + FR.sidewaysSlip + RL.sidewaysSlip + RR.sidewaysSlip) / 4;
+
+        try {
+            on_road  = FL.collider.material.name.Contains(ROAD_MATERIAL_NAME) ||
+                            FR.collider.material.name.Contains(ROAD_MATERIAL_NAME) ||
+                            RL.collider.material.name.Contains(ROAD_MATERIAL_NAME) ||
+                            RR.collider.material.name.Contains(ROAD_MATERIAL_NAME);
+        }
+        catch(NullReferenceException) {
+        
+            on_road = false; //If the car is in the air;
+        }
+
+        if (fordward_aver > 0.5 && on_road) {
+            skid.volume = fordward_aver * volume_factor;
+        }else if(side_aver > 0.3 && on_road) {
+            skid.volume = side_aver * volume_factor;
+        }else {
+            skid.volume = 0;
+        }
+
+    }
+
     private void setLights(bool status) {
         transform.Find("BrakeLights").gameObject.SetActive(status);
     }
@@ -206,6 +254,11 @@ public class CarController : MonoBehaviour {
 
     }
 
+    public float getSpeed() {
+
+        return GetComponent<Rigidbody>().velocity.magnitude * 3.6f;
+    }
+    //UnUsed
     public float carSpeedFromRMP(float rpm) {
 
         float speed, radius;
@@ -283,7 +336,7 @@ public class CarController : MonoBehaviour {
             if (!rearWheels[RIGHT].GetComponent<ParticleSystem>().isPlaying)
                 rearWheels[RIGHT].GetComponent<ParticleSystem>().Play();
 
-            if (Math.Abs(hit.sidewaysSlip) > 0.25 && hit.collider.material.name.Contains("MaxFriction")) {
+            if (Math.Abs(hit.sidewaysSlip) > 0.25 && hit.collider.material.name.Contains(ROAD_MATERIAL_NAME)) {
 
                 var emission = rearWheels[RIGHT].GetComponent<ParticleSystem>().emission;
                 emission.rateOverTime = Math.Abs(hit.sidewaysSlip) * SmokeRate;
@@ -299,7 +352,7 @@ public class CarController : MonoBehaviour {
             if (!rearWheels[LEFT].GetComponent<ParticleSystem>().isPlaying)
                 rearWheels[LEFT].GetComponent<ParticleSystem>().Play();
 
-            if (Math.Abs(hit.sidewaysSlip) > 0.25 && hit.collider.material.name.Contains("MaxFriction")) {
+            if (Math.Abs(hit.sidewaysSlip) > 0.25 && hit.collider.material.name.Contains(ROAD_MATERIAL_NAME)) {
 
                 var emission = rearWheels[LEFT].GetComponent<ParticleSystem>().emission;
                 emission.rateOverTime = Math.Abs(hit.sidewaysSlip) * SmokeRate;
@@ -448,6 +501,7 @@ public class Engine {
 
         currentRevs = (MAX_REVS * norm_speed) / norm_limit;
     }
+
     private void setRevsAccelerating(float speed, int minlimit, int maxLimit, float acceleratig) {
         float norm_speed = speed - minlimit;
         float norm_limit = maxLimit - minlimit;

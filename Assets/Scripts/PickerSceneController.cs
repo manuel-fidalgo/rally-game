@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -21,10 +22,11 @@ public class PickerSceneController : MonoBehaviour {
 	// Use this for initialization
 	void Start () {
 
+
         QualitySettings.antiAliasing = 8;
         positions = new Vector3[3];
         positions[0] = new Vector3(77.41f, -55.61f, 125.92f);
-        positions[1] = new Vector3(86.0f, -55.61f, 125.92f);
+        positions[1] = new Vector3(85.68f, -55.61f, 125.92f);
         positions[2] = new Vector3(93.9f, -55.61f, 125.92f);
         currentPosition = 0;
         currentColor = 0;
@@ -34,6 +36,7 @@ public class PickerSceneController : MonoBehaviour {
         createColors(avaliable_colors);
 
     }
+
     public void createColors(List<Color> lst) {
 
         lst.Add(Color.gray);
@@ -52,6 +55,9 @@ public class PickerSceneController : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
+        if (Input.GetKeyDown(KeyCode.Escape)) {
+            Application.Quit();
+        }
 
         if (Input.GetKeyDown("d"))
             currentPosition = getNextCircular(currentPosition, positions.Length);
@@ -77,7 +83,7 @@ public class PickerSceneController : MonoBehaviour {
             cars_materials[currentPosition].color = avaliable_colors[currentColor];
         }
 
-        if (Input.GetKey("space")) {
+        if (Input.GetKey(KeyCode.Space) || Input.GetKey(KeyCode.KeypadEnter)) {
 
             start.Play();
 
