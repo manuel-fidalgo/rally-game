@@ -1,3 +1,16 @@
+# Version Final 1.0
+-Realistic car physX
+-Bounout smoke and sound.
+-Tachometer
+-Speed
+-Lap time and best time
+-Switching between scenes
+-Brake lights
+
+![alt-tag](http://www.subeimagenes.com/img/burnout-1740256.png)
+![alt-tag](http://www.subeimagenes.com/img/rally-scrum-24-05-2017-20-18-51-1740246.png)
+![alt-tag](http://www.subeimagenes.com/img/rally-scrum-24-05-2017-20-21-17-1740247.png)
+
 # Vesion Beta 1.1 (develop)
 - Added wheels smoke when the car slips
 - Better car controller, implementing dynamic wheel friction
